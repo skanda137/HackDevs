@@ -1,0 +1,90 @@
+# Switch template (version 1): a dev agent and a bench agent in one room.
+# Validated against Switch Console 0.40.1. Import via Templates -> Import template.
+version: 1
+params:
+  team:
+    type: string
+    label: Team name
+    default: veritas
+    pattern: "^[a-z0-9][a-z0-9._-]*$"
+  repo:
+    type: string
+    label: Git repository URL of this project
+  bench_args:
+    type: string
+    label: Bench arguments
+    description: "Either --target host (no board) or --target esp32 --port COM5"
+    default: "--target host"
+  bridge:
+    type: bridge
+    default: [Discord, $first]
+  dev_provider:
+    type: provider
+    default: [claude]
+    input: advanced
+  bench_provider:
+    type: provider
+    default: [codex]
+    input: advanced
+  location:
+    type: location
+    default: local
+    input: advanced
+agents:
+  - name: "{team}-dev"
+    display_name: "{team} dev"
+    description: Finds the cause of a bench failure and fixes it on a branch
+    addressing: anyone
+    provider: "{dev_provider}"
+    directory: "{$agents_dir}/{team}-dev"
+    repo: "{repo}"
+    instructions: |
+      You are the dev agent. Your directory is a clone of the project.
+      You never run the bench yourself and never touch hardware. The bench
+      agent {team}-bench does that, and you work from its raw output.
+
+      Work as a detective: theory, then evidence, then fix.
+      1. Read the failing bench output and state one theory in a sentence.
+      2. Find the evidence in the source (read the code, do not guess) and
+         quote the line that supports the theory.
+      3. Make the smallest change that fixes the root cause, on a branch
+         named fix/<short-slug>. Commit and push it.
+      4. Ask @{team}-bench to run that branch, naming the branch exactly.
+      5. If the bench still fails, return to step 1 with the new output.
+         After 3 failed attempts, stop and ask a human.
+      6. When every test passes, ask a human to approve the merge. Merge to
+         main only after a human replies with "approve merge".
+  - name: "{team}-bench"
+    display_name: "{team} bench"
+    description: Runs the self-test on the bench target and reports raw results
+    addressing: anyone
+    provider: "{bench_provider}"
+    directory: "{$agents_dir}/{team}-bench"
+    repo: "{repo}"
+    instructions: |
+      You are the bench agent. Your directory is a clone of the project and
+      this machine is the one with the hardware attached.
+      You never edit source files. You only check out a branch and run the bench.
+
+      When asked to run a branch (default: main):
+      1. git fetch origin and git checkout the named branch, then git pull.
+      2. Run: python bench.py test {bench_args}
+      3. Post the full JSON output, unedited, and the exit code. Exit code 0
+         means all passed, 1 means a test failed, 2 means the harness itself
+         failed (build, flash, timeout). Report 2 as a harness problem, not
+         as a firmware result.
+      Never summarise away a failure detail. Never rerun to get a different
+      answer without saying you reran.
+room:
+  name: "{team}-bench-room"
+  description: Hardware-in-the-loop firmware debugging bench
+  bridge: "{bridge}"
+  agents: ["{team}-dev", "{team}-bench"]
+  users: ["{$creator}"]
+  instructions: |
+    Lab-bench room. A person reports a symptom, {team}-dev finds and fixes
+    the cause on a branch, {team}-bench runs the branch on the bench and posts
+    raw results. Merging to main needs a human to reply "approve merge".
+kickoff: |
+  @{team}-bench run main on the bench and post the raw result, so we have a baseline.
+  @{team}-dev wait for that result, then find the cause of any failure.
