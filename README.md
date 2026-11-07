@@ -8,6 +8,8 @@ Switch is the only link between the three: the agent that can touch the hardware
 
 One laptop (the one with the board) runs Switch Console, the local Docker server and both agents. The other teammate joins the Discord room and directs, answers approval prompts and approves merges. A Console-run local server belongs to a single computer, so a second laptop cannot register its own agents on it. That is why both agents live on the bench laptop.
 
+<img width="1568" height="1256" alt="image" src="https://github.com/user-attachments/assets/01a2b579-f3e7-4946-9254-74ba7dff16e4" />
+
 ## What is in the repo
 
 | Path | Purpose |
