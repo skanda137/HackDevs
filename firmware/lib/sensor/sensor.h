@@ -20,7 +20,7 @@ typedef struct {
     uint16_t samples[SENSOR_WINDOW];
     uint8_t head;
     uint8_t count;
-    uint16_t sum;
+    uint32_t sum;
     bool alarm;
 } sensor_t;
 
